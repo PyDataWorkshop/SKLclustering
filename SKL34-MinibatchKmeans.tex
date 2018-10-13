@@ -1,0 +1,73 @@
+\subsection{Using MiniBatch KMeans to handle more data}
+KMeans is a nice method to use; however, it is not ideal for a lot of data. This is due to
+the complexity of KMeans. This said, we can get approximate solutions with much better
+algorithmic complexity using KMeans.
+\subsubsection{Getting ready}
+MiniBatch KMeans is a faster implementation of KMeans. KMeans is computationally very
+expensive; the problem is NP-hard.
+However, using MiniBatch KMeans, we can speed up KMeans by orders of magnitude. This
+is achieved by taking many subsamples that are called MiniBatches. Given the convergence
+properties of subsampling, a close approximation to regular KMeans is achieved, given good
+initial conditions.
+\subsubsection{I@mplementation}
+Let's do some very high-level profiling of MiniBatch clustering. First, we'll look at the overall
+speed difference, and then we'll look at the errors in the estimates:
+\begin{framed}
+\begin{verbatim}
+>>> from sklearn.datasets import make_blobs
+>>> blobs, labels = make_blobs(int(1e6), 3)
+>>> from sklearn.cluster import KMeans, MiniBatchKMeans
+>>> kmeans = KMeans(n_clusters=3)
+>>> minibatch = MiniBatchKMeans(n_clusters=3)
+\end{verbatim}
+\end{framed}
+%========================================================%
+% % Building Models with Distance Metrics
+% % 98
+Understand that these metrics are meant to expose the issue.
+Therefore, great care is taken to ensure the highest accuracy of the
+benchmarks. There is a lot of information available on this topic;
+if you really want to get to the heart of why MiniBatch KMeans is
+better at scaling, it will be a good idea to review what's available.
+Now that the setup is complete, we can measure the time difference:
+>>> %time kmeans.fit(blobs) #IPython Magic
+CPU times: user 8.17 s, sys: 881 ms, total: 9.05 s Wall time: 9.97 s
+>>> %time minibatch.fit(blobs)
+CPU times: user 4.04 s, sys: 90.1 ms, total: 4.13 s Wall time: 4.69 s
+There's a large difference in CPU times. The difference in clustering performance is shown
+as follows:
+>>> kmeans.cluster_centers_[0]
+array([ 1.10522173, -5.59610761, -8.35565134])
+>>> minibatch.cluster_centers_[0]
+array([ 1.12071187, -5.61215116, -8.32015587])
+The next question we might ask is how far apart the centers are:
+>>> from sklearn.metrics import pairwise
+>>> pairwise.pairwise_distances(kmeans.cluster_centers_[0],
+minibatch.cluster_centers_[0])
+array([[ 0.03305309]])
+This seems to be very close. The diagonals will contain the cluster center differences:
+>>> np.diag(pairwise.pairwise_distances(kmeans.cluster_centers_,
+minibatch.cluster_centers_))
+array([ 0.04191979, 0.03133651, 0.04342707])
+\end{verbatim}
+\end{framed}
+\subsubsection{Operation}
+The batches here are key. Batches are iterated through to find the batch mean; for the next
+iteration, the prior batch mean is updated in relation to the current iteration. There are several
+options that dictate the general KMeans' behavior and parameters that determine how
+MiniBatch KMeans gets updated.
+%========================================================%
+% % Chapter 3
+% % 99
+The batch_size parameter determines how large the batches should be. Just for fun, let's
+run MiniBatch; however, this time we set the batch size the same as the dataset size:
+>>> minibatch = MiniBatchKMeans(batch_size=len(blobs))
+>>> %time minibatch.fit(blobs)
+CPU times: user 34.6 s, sys: 3.17 s, total: 37.8 s Wall time: 44.6 s
+\end{verbatim}
+\end{framed}
+Clearly, this is against the spirit of the problem, but it does illustrate an important point.
+Choosing poor initial conditions can affect how well models, particularly clustering models,
+converge. With MiniBatch KMeans, there is no guarantee that the global optimum will
+be achieved.
+\newpage
